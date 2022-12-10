@@ -127,7 +127,22 @@ struct StableDiffusionSample: ParsableCommand {
             }
 
             let name = imageName(i, step: step)
-            let fileURL = url.appending(path:name)
+            var fileURL = url.appending(path: name)
+            
+            // Don't throw an error when the file path exceeds 255 characters.
+            // This is important for excessively long prompts, where you might
+            // run the model only to realize that it failed to save.
+            if fileURL.absoluteString.count > 255 {
+                log("WARNING: Image file path was shortened to 255 characters. This may unintentionally overwrite similarly named files. Original path: '\(fileURL.absoluteString)'\n")
+                let numExcessiveCharacters = fileURL.absoluteString.count - 255
+                
+                let fileExtensionLength = String(".png").count
+                guard name.count >= numExcessiveCharacters + fileExtensionLength else {
+                    throw RunError.saving("Directory path length was too large, possibly exceeding 255 characters.")
+                }
+                let shortenedName = imageName(i, step: step, truncatedLength: numExcessiveCharacters)
+                fileURL = url.appending(path: shortenedName)
+            }
 
             guard let dest = CGImageDestinationCreateWithURL(fileURL as CFURL, UTType.png.identifier as CFString, 1, nil) else {
                 throw RunError.saving("Failed to create destination for \(fileURL)")
@@ -144,12 +159,11 @@ struct StableDiffusionSample: ParsableCommand {
         return saved
     }
 
-    func imageName(_ sample: Int, step: Int? = nil) -> String {
+    func imageName(_ sample: Int, step: Int? = nil, truncatedLength: Int = 0) -> String {
         var name = prompt.replacingOccurrences(of: " ", with: "_")
         if imageCount != 1 {
             name += ".\(sample)"
         }
-
         name += ".\(seed)"
 
         if let step = step {
@@ -157,6 +171,7 @@ struct StableDiffusionSample: ParsableCommand {
         } else {
             name += ".final"
         }
+        name.removeLast(truncatedLength)
         name += ".png"
         return name
     }
