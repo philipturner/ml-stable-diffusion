@@ -25,7 +25,7 @@ public struct StableDiffusionPipeline {
     var safetyChecker: SafetyChecker? = nil
 
     /// Controls the influence of the text prompt on sampling process (0=random images)
-    var guidanceScale: Float = 7.5
+    var guidanceScale: Float = 11.5
 
     /// Reports whether this pipeline can perform safety checks
     public var canSafetyCheck: Bool {
